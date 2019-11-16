@@ -15,11 +15,14 @@ from ctypes import *
 from OpenGL.GL import *
 from pygame.locals import *
 
+import ctypes
+user32 = ctypes.windll.user32
+
 import os
 os.environ['SDL_VIDEO_CENTERED'] = '1'
 
 #Size of the window and rendering
-win_size = (1280, 720)
+win_size = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
 
 #Maximum frames per second
 max_fps = 30
@@ -208,8 +211,12 @@ def reorthogonalize(mat):
 	u, s, v = np.linalg.svd(mat)
 	return np.dot(u, v)
 
+FreeMouse = False
+
 # move the cursor back , only if the window is focused
 def center_mouse():
+	if FreeMouse:
+		return
 	if pygame.key.get_focused():
 		pygame.mouse.set_pos(screen_center)
 
@@ -238,7 +245,7 @@ def center_mouse():
 if __name__ == '__main__':
 	pygame.init()
 	window = pygame.display.set_mode(win_size, OPENGL | DOUBLEBUF)
-	pygame.mouse.set_visible(False)
+	pygame.mouse.set_visible(FreeMouse)
 	center_mouse()
 
 	#======================================================
@@ -254,6 +261,7 @@ if __name__ == '__main__':
 	camera = Camera()
 	camera['ANTIALIASING_SAMPLES'] = 1
 	camera['AMBIENT_OCCLUSION_STRENGTH'] = 0.01
+	camera['DIFFUSE_ENABLED'] = True
 	#======================================================
 
 	shader = Shader(obj_render)
@@ -321,8 +329,14 @@ if __name__ == '__main__':
 					start_playback()
 				elif event.key == pygame.K_c:
 					pygame.image.save(window, 'screenshot.png')
+				elif event.key == pygame.K_f:
+					FreeMouse = not FreeMouse
+					pygame.mouse.set_visible(FreeMouse)
 				elif event.key == pygame.K_ESCAPE:
 					sys.exit(0)
+                    
+		if FreeMouse:
+			continue
 
 		mat[3,:3] += vel * (clock.get_time() / 1000)
 
@@ -339,18 +353,18 @@ if __name__ == '__main__':
 		if all_keys[pygame.K_LSHIFT]:   rate *= 0.1
 		elif all_keys[pygame.K_RSHIFT]: rate *= 10.0
 
-		if all_keys[pygame.K_INSERT]:   keyvars[0] += rate; print(keyvars)
-		if all_keys[pygame.K_DELETE]:   keyvars[0] -= rate; print(keyvars)
-		if all_keys[pygame.K_HOME]:     keyvars[1] += rate; print(keyvars)
-		if all_keys[pygame.K_END]:      keyvars[1] -= rate; print(keyvars)
-		if all_keys[pygame.K_PAGEUP]:   keyvars[2] += rate; print(keyvars)
-		if all_keys[pygame.K_PAGEDOWN]: keyvars[2] -= rate; print(keyvars)
-		if all_keys[pygame.K_KP7]:      keyvars[3] += rate; print(keyvars)
-		if all_keys[pygame.K_KP4]:      keyvars[3] -= rate; print(keyvars)
-		if all_keys[pygame.K_KP8]:      keyvars[4] += rate; print(keyvars)
-		if all_keys[pygame.K_KP5]:      keyvars[4] -= rate; print(keyvars)
-		if all_keys[pygame.K_KP9]:      keyvars[5] += rate; print(keyvars)
-		if all_keys[pygame.K_KP6]:      keyvars[5] -= rate; print(keyvars)
+		if all_keys[pygame.K_INSERT]:   keyvars[0] += rate; #print(keyvars)
+		if all_keys[pygame.K_DELETE]:   keyvars[0] -= rate; #print(keyvars)
+		if all_keys[pygame.K_HOME]:     keyvars[1] += rate; #print(keyvars)
+		if all_keys[pygame.K_END]:      keyvars[1] -= rate; #print(keyvars)
+		if all_keys[pygame.K_PAGEUP]:   keyvars[2] += rate; #print(keyvars)
+		if all_keys[pygame.K_PAGEDOWN]: keyvars[2] -= rate; #print(keyvars)
+		if all_keys[pygame.K_KP7]:      keyvars[3] += rate; #print(keyvars)
+		if all_keys[pygame.K_KP4]:      keyvars[3] -= rate; #print(keyvars)
+		if all_keys[pygame.K_KP8]:      keyvars[4] += rate; #print(keyvars)
+		if all_keys[pygame.K_KP5]:      keyvars[4] -= rate; #print(keyvars)
+		if all_keys[pygame.K_KP9]:      keyvars[5] += rate; #print(keyvars)
+		if all_keys[pygame.K_KP6]:      keyvars[5] -= rate; #print(keyvars)
 
 		if playback is None:
 			prev_mouse_pos = mouse_pos
@@ -429,4 +443,4 @@ if __name__ == '__main__':
 		pygame.display.flip()
 		clock.tick(max_fps)
 		frame_num += 1
-		print(clock.get_fps())
+		#print(clock.get_fps())
