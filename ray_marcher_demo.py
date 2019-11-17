@@ -25,7 +25,7 @@ os.environ['SDL_VIDEO_CENTERED'] = '1'
 win_size = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
 
 #Maximum frames per second
-max_fps = 60
+max_fps = 120
 
 #Forces an 'up' orientation when True, free-camera when False
 gimbal_lock = False
@@ -221,6 +221,15 @@ def reorthogonalize(mat):
     u, s, v = np.linalg.svd(mat)
     return np.dot(u, v)
 
+def translate(value, leftMin, leftMax, rightMin, rightMax):
+    leftSpan = leftMax - leftMin
+    rightSpan = rightMax - rightMin
+    valueScaled = float(value - leftMin) / float(leftSpan)
+    return rightMin + (valueScaled * rightSpan)
+
+def convertRGB(r, g, b):
+    return (translate(r, 0, 255, 0, 1), translate(g, 0, 255, 0, 1), translate(b, 0, 255, 0, 1))
+
 FreeMouse = False
 LockSpeed = False
 LockedSpeed = None
@@ -309,6 +318,8 @@ if __name__ == '__main__':
     else:
         print("Invalid selection")
         sys.exit(0)
+        
+    pygame.display.set_caption(fractalSelection + ' Fractal')
     
 
     #======================================================
@@ -316,14 +327,19 @@ if __name__ == '__main__':
     # See pyspace/camera.py for all camera options
     #======================================================
     camera = Camera()
-    camera['ANTIALIASING_SAMPLES'] = 2
+    camera['ANTIALIASING_SAMPLES'] = 1
     camera['AMBIENT_OCCLUSION_STRENGTH'] = 0.01
     camera['DIFFUSE_ENABLED'] = True
+    camera['FOG_ENABLED'] = True
+    camera['LIGHT_COLOR'] = convertRGB(252, 212, 64)
+    
+    camera['LOD_MULTIPLIER'] = 100
+    camera['MIN_DIST'] = 0.000001
+    camera['VIGNETTE_FOREGROUND'] = True
     #======================================================
 
     shader = Shader(obj_render)
     program = shader.compile(camera)
-    print("Compiled!")
 
     matID = glGetUniformLocation(program, "iMat")
     prevMatID = glGetUniformLocation(program, "iPrevMat")
@@ -351,6 +367,9 @@ if __name__ == '__main__':
     playback_ix = -1
     frame_num = 0
     
+    color_white = (255, 255, 255)
+    last_fps = 0
+    
     def finish_recording():
         global recording
         global rec_vars
@@ -358,7 +377,6 @@ if __name__ == '__main__':
         np.save('rec_vars.npy', np.array(rec_vars, dtype=np.float32))
         recording = None
         rec_vars = None
-        print("Finished Recording.")
 
     def start_playback():
         global playback
@@ -373,6 +391,17 @@ if __name__ == '__main__':
         playback_vars = interp_data(playback_vars, 2)
         playback_ix = 0
         prevMat = playback[0]
+    
+    def getScreenshotFileName():
+        if not os.path.exists('screenshots'):
+            os.makedirs('screenshots')
+        
+        index = 1
+        filename = 'screenshots/screenshot_'+str(index)+'.png'
+        while os.path.exists(filename):
+            index += 1
+            filename = 'screenshots/screenshot_'+str(index)+'.png'
+        return filename
 
     clock = pygame.time.Clock()
     while True:
@@ -382,7 +411,6 @@ if __name__ == '__main__':
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r:
                     if recording is None:
-                        print("Recording...")
                         recording = []
                         rec_vars = []
                     else:
@@ -392,7 +420,7 @@ if __name__ == '__main__':
                         finish_recording()
                     start_playback()
                 elif event.key == pygame.K_c:
-                    pygame.image.save(window, 'screenshot.png')
+                    pygame.image.save(window, getScreenshotFileName())
                 elif event.key == pygame.K_f:
                     FreeMouse = not FreeMouse
                     if FreeMouse:
@@ -420,7 +448,7 @@ if __name__ == '__main__':
 
         all_keys = pygame.key.get_pressed()
 
-        rate = 0.01
+        rate = 0.0001
 
         if all_keys[pygame.K_INSERT]:   keyvars[0] += rate; #print(keyvars)
         if all_keys[pygame.K_DELETE]:   keyvars[0] -= rate; #print(keyvars)
@@ -519,7 +547,11 @@ if __name__ == '__main__':
         prevMat = np.copy(mat)
 
         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4)
+        
         pygame.display.flip()
         clock.tick(max_fps)
         frame_num += 1
-        #print(clock.get_fps())
+        
+        last_fps = clock.get_fps()
+        
+        print('FPS:' + str(last_fps), end='\r')
